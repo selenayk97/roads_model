@@ -267,12 +267,13 @@ tpe = TruckPassErosion(
                     half_width,
                     full_tire, 
                     truck_num=truck_num_ini,
-                    F_af0 = 0.50, 
+                    F_af0 = 0.85, 
                     F_sf0 = 1, 
                     F_bc0 = 0.5, 
                     scat_loss=8e-4, 
                     porosity_c=porosity_c, 
-                    porosity_f=porosity_f
+                    porosity_f=porosity_f,
+                    rand_seed=seed,
                     )
 
 oft = OverlandFlowTransporter(

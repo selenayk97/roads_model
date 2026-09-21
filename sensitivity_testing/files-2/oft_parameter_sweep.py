@@ -39,11 +39,11 @@ if __name__ == "__main__":
     #   SWEEP_VALUES = np.linspace(0.3, 0.7, 5)   # safer: exact count, no float drift
     #
     # Can change the following: porosity_c, porosity_f, scat_loss, tau_c_road,
-    # truck_num_ini, n_c, n_f, d50_road, F_af0, F_bc0, F_sf0, compression
+    # truck_num_ini, n_c, n_f, d50_road, F_af0, F_bc0, F_sf0, compression, u_ps, S, u_pb
     # =========================================================================
-    SWEEP_PARAM = "truck_num_ini"  # the run_realization() keyword argument to vary
+    SWEEP_PARAM = "u_ps"  # the run_realization() keyword argument to vary
     #may or may not have to update code with type as int
-    SWEEP_VALUES = np.linspace(0, 13, 4).astype(int)  # 4 evenly-spaced values: 0, 4, 8, 12
+    SWEEP_VALUES = np.linspace(1.52e-4, 2.83e-4, 4) 
 
     PARAM_SWEEP = [
         {"name": f"{SWEEP_PARAM}={v:g}", SWEEP_PARAM: v}
@@ -81,16 +81,25 @@ if __name__ == "__main__":
         sweep_results[name] = runs
 
     # ------ compare total_road_mass across parameter settings ------
+    # ------ compare total_road_mass across parameter settings ------
     sweep_labels = list(sweep_results.keys())
     sweep_road_mass = [
         np.array([r["total_road_mass"].sum() for r in sweep_results[name]])
         for name in sweep_labels
     ]
 
+    # ------ cutslope-only sediment mass, same structure as above ------
+    # cum_road_mass_change_oft is already the cutslope side only (mass_ditch_inflow
+    # + mass_ditch_rut_outflow) -- see run_realization for details.
+    sweep_cutslope_mass = [
+        np.array([r["cum_road_mass_change_oft"][-1] for r in sweep_results[name]])
+        for name in sweep_labels
+    ]
+
     print(f"\n--- Parameter sweep summary ({N_REALIZATIONS_PER_SETTING} realizations each) ---")
-    print(f"{'Setting':<28}{'Mean road mass':>16}{'Std':>12}")
-    for name, arr in zip(sweep_labels, sweep_road_mass):
-        print(f"{name:<28}{arr.mean():>16.2f}{arr.std():>12.2f}")
+    print(f"{'Setting':<28}{'Mean total mass':>16}{'Std':>10}{'Mean cutslope mass':>20}{'Std':>10}")
+    for name, arr, arr_cut in zip(sweep_labels, sweep_road_mass, sweep_cutslope_mass):
+        print(f"{name:<28}{arr.mean():>16.2f}{arr.std():>10.2f}{arr_cut.mean():>20.2f}{arr_cut.std():>10.2f}")
 
     # boxplot: distribution of total_road_mass under each parameter setting
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -99,6 +108,32 @@ if __name__ == "__main__":
     ax.set_title(f"Effect of model parameters on sediment output "
                  f"({N_REALIZATIONS_PER_SETTING} realizations per setting)")
     plt.xticks(rotation=30, ha="right")
+    plt.tight_layout()
+    plt.show()
+
+        # boxplot: cutslope-only sediment mass under each parameter setting
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.boxplot(sweep_cutslope_mass, tick_labels=sweep_labels)
+    ax.set_ylabel("Cutslope-side road mass, water-transported [kg]")
+    ax.set_title(f"Effect of model parameters on CUTSLOPE-ONLY sediment output "
+                 f"({N_REALIZATIONS_PER_SETTING} realizations per setting)")
+    plt.xticks(rotation=30, ha="right")
+    plt.tight_layout()
+    plt.show()
+
+    # side-by-side comparison: total vs. cutslope-only, per setting
+    fig, ax = plt.subplots(figsize=(10, 5))
+    x = np.arange(len(sweep_labels))
+    width = 0.35
+    total_means = [arr.mean() for arr in sweep_road_mass]
+    cutslope_means = [arr.mean() for arr in sweep_cutslope_mass]
+    ax.bar(x - width/2, total_means, width, label="Total road mass")
+    ax.bar(x + width/2, cutslope_means, width, label="Cutslope-only mass")
+    ax.set_xticks(x)
+    ax.set_xticklabels(sweep_labels, rotation=30, ha="right")
+    ax.set_ylabel("Sediment mass [kg]")
+    ax.set_title("Total vs. cutslope-only sediment output, by parameter setting")
+    ax.legend()
     plt.tight_layout()
     plt.show()
 
@@ -222,6 +257,49 @@ if __name__ == "__main__":
         else:
             print(f"\nSkipped log-log plot: {SWEEP_PARAM} or total road mass includes "
                   f"zero/negative values, which can't be shown on a log scale.")
+
+                # ------ cutslope-only log-log version, with its own power-law fit ------
+        all_y_cutslope = np.concatenate(sweep_cutslope_mass)
+        if all(v > 0 for v in sweep_param_values) and all(all_y_cutslope > 0):
+            fig, ax = plt.subplots(figsize=(8, 6))
+            for seed_idx in range(N_REALIZATIONS_PER_SETTING):
+                mass_by_setting_cut = [
+                    sweep_results[name][seed_idx]["cum_road_mass_change_oft"][-1]
+                    for name in sweep_labels
+                ]
+                ax.plot(sweep_param_values, mass_by_setting_cut, color="gray", alpha=0.3, marker="o")
+            mean_cutslope_by_setting = [arr.mean() for arr in sweep_cutslope_mass]
+            ax.plot(sweep_param_values, mean_cutslope_by_setting, color="orange", linewidth=2,
+                     marker="o", label="Mean (cutslope only)")
+
+            log_x_cut = np.log10(all_x)
+            log_y_cut = np.log10(all_y_cutslope)
+            b_fit_cut, log_a_fit_cut = np.polyfit(log_x_cut, log_y_cut, 1)
+            a_fit_cut = 10 ** log_a_fit_cut
+            log_y_pred_cut = b_fit_cut * log_x_cut + log_a_fit_cut
+            ss_res_cut = np.sum((log_y_cut - log_y_pred_cut) ** 2)
+            ss_tot_cut = np.sum((log_y_cut - log_y_cut.mean()) ** 2)
+            r_squared_cut = 1 - ss_res_cut / ss_tot_cut if ss_tot_cut > 0 else float("nan")
+
+            x_line = np.array([min(sweep_param_values), max(sweep_param_values)])
+            ax.plot(x_line, a_fit_cut * x_line ** b_fit_cut, color="black", linestyle="--",
+                     linewidth=1.5, label=f"Power-law fit (R²={r_squared_cut:.3f})")
+
+            print(f"\n--- Power-law fit: cutslope-only mass = a * {SWEEP_PARAM}^b ---")
+            print(f"  a = {a_fit_cut:.4f}, b (exponent) = {b_fit_cut:.4f}")
+            print(f"  R² (log-log space, n={len(all_x)}): {r_squared_cut:.4f}")
+
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            ax.set_xlabel(f"{SWEEP_PARAM} (log scale)")
+            ax.set_ylabel("Cutslope-only road mass [kg] (log scale)")
+            ax.set_title(f"Cutslope-only sediment output vs. {SWEEP_PARAM} -- log-log")
+            ax.legend()
+            plt.tight_layout()
+            plt.show()
+        else:
+            print(f"\nSkipped cutslope-only log-log plot: {SWEEP_PARAM} or cutslope mass "
+                  f"includes zero/negative values, which can't be shown on a log scale.")
 #%%
 # ------ optional: view a road cross-section for one specific seed ------
 # Works after EITHER the main ensemble or the sweep above (or standalone,

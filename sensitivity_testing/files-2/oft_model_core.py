@@ -143,7 +143,7 @@ def create_array_poisson(size, zero_prob, lam, rng):
 def run_realization(seed, run_duration=run_duration_default,
                      save_plots=False, verbose=True, return_grid=False,
                      rainfall_source="poisson", rain_seed=None, grid_seed=None,
-                     porosity_c=porosity_c, porosity_f=porosity_f,
+                     porosity_c=porosity_c, porosity_f=porosity_f, rand_seed=0,
                      truck_num_ini=truck_num_ini, S=S, u_ps=2.18e-4, u_pb=2.3e-6,
                      F_af0=0.50, F_sf0=1, F_bc0=0.5, scat_loss=8e-4, compression=7e-4,
                      tau_c_road=tau_c_road, n_c=n_c, n_f=n_f, d50_road=d50_road):
@@ -225,7 +225,7 @@ def run_realization(seed, run_duration=run_duration_default,
         #dt_hours = pd.read_csv("input/WY2023_RG_daily_dt.csv")
         #dt_hours_run_dur = dt_hours[rain_gauge].iloc[intensity_index:].values
     if rainfall_source == "historical":
-        data = pd.read_csv("/Users/goddamnit/github/roads_model/input/Case High.csv")
+        data = pd.read_csv("/Users/goddamnit/github/roads_model/input/Case Low.csv")
 
         def find_col(df, keyword):
             matches = [c for c in df.columns if keyword.lower() in c.lower()]
