@@ -36,7 +36,7 @@ from utilities.erodible_grid import Erodible_Grid
 # ==========================================================================
 
 # ------ default run duration (can be overridden per call) ------
-run_duration_default = 120  # ~4 months
+run_duration_default = 30  # ~4 months=120 days
 
 # ------ physical constants ------
 rho_w = 1000
@@ -143,10 +143,11 @@ def create_array_poisson(size, zero_prob, lam, rng):
 def run_realization(seed, run_duration=run_duration_default,
                      save_plots=False, verbose=True, return_grid=False,
                      rainfall_source="poisson", rain_seed=None, grid_seed=None,
-                     porosity_c=porosity_c, porosity_f=porosity_f, rand_seed=0,
+                     porosity_c=porosity_c, porosity_f=porosity_f,
                      truck_num_ini=truck_num_ini, S=S, u_ps=2.18e-4, u_pb=2.3e-6,
                      F_af0=0.50, F_sf0=1, F_bc0=0.5, scat_loss=8e-4, compression=7e-4,
-                     tau_c_road=tau_c_road, n_c=n_c, n_f=n_f, d50_road=d50_road):
+                     tau_c_road=tau_c_road, n_c=n_c, n_f=n_f, d50_road=d50_road,
+                     rain_zero_prob=0.6, rain_lam=7, rain_duration_mean=0.8):
     """
     Run one full realization of the road erosion model.
 
@@ -198,6 +199,15 @@ def run_realization(seed, run_duration=run_duration_default,
     u_pb : float
         TruckPassErosion parameter -- pumping rate from the ballast layer
         to the surfacing layer, per truck pass [kg/truck].
+    rain_zero_prob : float
+        Probability a given day has no rainfall at all (rainfall_source=
+        "poisson" only). Lower value = more days with rain.
+    rain_lam : float
+        Mean of the Poisson distribution used for rainfall intensity on
+        rainy days [mm/hr] (rainfall_source="poisson" only).
+    rain_duration_mean : float
+        Mean of the Poisson distribution used for storm duration on rainy
+        days [hr] (rainfall_source="poisson" only).
 
     Returns
     -------
@@ -225,7 +235,7 @@ def run_realization(seed, run_duration=run_duration_default,
         #dt_hours = pd.read_csv("input/WY2023_RG_daily_dt.csv")
         #dt_hours_run_dur = dt_hours[rain_gauge].iloc[intensity_index:].values
     if rainfall_source == "historical":
-        data = pd.read_csv("/Users/goddamnit/github/roads_model/input/Case Low.csv")
+        data = pd.read_csv("/Users/goddamnit/github/roads_model/input/Case Medium.csv")
 
         def find_col(df, keyword):
             matches = [c for c in df.columns if keyword.lower() in c.lower()]
@@ -250,6 +260,7 @@ def run_realization(seed, run_duration=run_duration_default,
 
         intensity_run_dur = daily["avg_intensity"].values
         dt_hours_run_dur = daily["wet_hours"].values
+        
     elif rainfall_source == "equilibrium":
         # Constant-intensity equilibrium run. Also identical every
         # realization.
@@ -260,9 +271,9 @@ def run_realization(seed, run_duration=run_duration_default,
         #   change the 3rd argument (lam) to change average intensity [mm/hr]
         #   change the first argument to rng_rain.poisson below to change
         #   average storm duration [hrs]
-        intensity_run_dur = create_array_poisson(run_duration, 0.6, 4, rng_rain)
+        intensity_run_dur = create_array_poisson(run_duration, rain_zero_prob, rain_lam, rng_rain)
         dt_hours_run_dur = np.array(
-            [rng_rain.poisson(8, 1).item() if x != 0 else 0 for x in intensity_run_dur]
+            [rng_rain.poisson(rain_duration_mean, 1).item() if x != 0 else 0 for x in intensity_run_dur]
         )
 
     dt = np.array(dt_hours_run_dur) / 24  # convert dt to days
@@ -736,6 +747,9 @@ def run_realization(seed, run_duration=run_duration_default,
         "tpe_load_ruts": tpe_load_ruts,
         "fs_avg_ruts": fs_avg_ruts,
         "fs_avg_road": fs_avg_road,
+        "S": S, "u_ps": u_ps, "u_pb": u_pb,
+        "rain_zero_prob": rain_zero_prob, "rain_lam": rain_lam,
+        "rain_duration_mean": rain_duration_mean,
     }
 
     if return_grid:
