@@ -9,7 +9,7 @@ import matplotlib.dates as mdates
 #%%
 ## Define variables ##
 START_DATE = datetime(2026, 1, 1)     # simulation start date
-TOTAL_PERIOD_DAYS = 120                # total simulation length, in days
+TOTAL_PERIOD_DAYS = 30              # total simulation length, in days
 DT_MINUTES = 60                       # time step: 1440 = daily, 60 = hourly, 15 = 15-min
 OUTPUT_NAME = "rainfall_scenario"     # base filename for the plot
 
@@ -21,9 +21,9 @@ OUTPUT_NAME = "rainfall_scenario"     # base filename for the plot
 # num_storms(V)               number of storm events, evenly spaced across the
 #                             full TOTAL_PERIOD_DAYS
 SCENARIOS = [
-    {"name": "Case Low", "intensity_mm_hr": 0.5, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 40},
-     {"name": "Case High", "intensity_mm_hr": 11, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 40},
-     #{"name": "Case High", "intensity_mm_hr": 7, "intensity_step_mm_hr": 0, "storm_duration_days": 0.35, "num_storms": 40},
+    {"name": "Case Low", "intensity_mm_hr": 1, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
+     {"name": "Case Medium", "intensity_mm_hr": 6, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
+     {"name": "Case High", "intensity_mm_hr": 12, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
 ]
 
 #%%
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 #%%
 rain_depth_low = 1.6 * 25.4 #inch to mm/month
 rain_depth_high = 37.3 * 25.4 
-sim_duration = 4 #months
+sim_duration = 1 #months
 
 print(f"Low case total rainfall depth: {(rain_depth_low * sim_duration):.2f} mm")
 print(f"High case total rainfall depth: {(rain_depth_high * sim_duration):.2f} mm")
@@ -110,9 +110,10 @@ def solve_intensity_from_depth(total_depth_mm, num_storms, storm_duration_hours)
     return total_depth_mm / (num_storms * storm_duration_hours)
 
 # Low case
-intensity_low = solve_intensity_from_depth(162.6, num_storms=40, storm_duration_hours=8)
+intensity_low = solve_intensity_from_depth(40.64, num_storms=10, storm_duration_hours=8)
 # High case
-intensity_high = solve_intensity_from_depth(3789.7, num_storms=40, storm_duration_hours=8)
+intensity_high = solve_intensity_from_depth(947.45, num_storms=10, storm_duration_hours=8)
 
 print(f"Low case intensity: {intensity_low:.2f} mm/hr")
 print(f"High case intensity: {intensity_high:.2f} mm/hr")
+# %%

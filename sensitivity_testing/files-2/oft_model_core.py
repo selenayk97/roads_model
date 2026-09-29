@@ -1,8 +1,13 @@
+#%%
+#%load_ext autoreload
+#%autoreload 2
+
 # %%
 import os
 import shutil
 import sys
 import time
+import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,7 +31,7 @@ np.set_printoptions(threshold=np.inf)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
-
+_historical_csv_confirmed = set()
 from utilities.erodible_grid import Erodible_Grid
 
 # %%
@@ -68,7 +73,7 @@ Ss_ini = 0.23   # surfacing depth in m
 Sb_ini = 2      # ballast depth in m
 
 # ------ truck passes ------
-truck_num_ini = 6
+truck_num_ini = 24
 
 # ------ roughness values ------
 n_c = 0.05
@@ -142,12 +147,13 @@ def create_array_poisson(size, zero_prob, lam, rng):
 # ==========================================================================
 def run_realization(seed, run_duration=run_duration_default,
                      save_plots=False, verbose=True, return_grid=False,
-                     rainfall_source="poisson", rain_seed=None, grid_seed=None,
+                     rainfall_source="historical", rain_seed=None, grid_seed=None,
                      porosity_c=porosity_c, porosity_f=porosity_f,
                      truck_num_ini=truck_num_ini, S=S, u_ps=2.18e-4, u_pb=2.3e-6,
                      F_af0=0.50, F_sf0=1, F_bc0=0.5, scat_loss=8e-4, compression=7e-4,
                      tau_c_road=tau_c_road, n_c=n_c, n_f=n_f, d50_road=d50_road,
-                     rain_zero_prob=0.6, rain_lam=7, rain_duration_mean=0.8):
+                     rain_zero_prob=0.6, rain_lam=7, rain_duration_mean=8,
+                     historical_csv_path="/Users/goddamnit/github/roads_model/input/Case Medium.csv"):
     """
     Run one full realization of the road erosion model.
 
@@ -208,6 +214,11 @@ def run_realization(seed, run_duration=run_duration_default,
     rain_duration_mean : float
         Mean of the Poisson distribution used for storm duration on rainy
         days [hr] (rainfall_source="poisson" only).
+    historical_csv_path : str
+        Path to the CSV file used when rainfall_source="historical". Every
+        call prints the resolved path, the file's last-modified timestamp,
+        and its column names/first few values -- use this to directly
+        confirm which file and version is actually being read.
 
     Returns
     -------
@@ -234,8 +245,9 @@ def run_realization(seed, run_duration=run_duration_default,
         #intensity_run_dur = intensity[rain_gauge].iloc[intensity_index:].values
         #dt_hours = pd.read_csv("input/WY2023_RG_daily_dt.csv")
         #dt_hours_run_dur = dt_hours[rain_gauge].iloc[intensity_index:].values
+
     if rainfall_source == "historical":
-        data = pd.read_csv("/Users/goddamnit/github/roads_model/input/Case Medium.csv")
+        data = pd.read_csv(historical_csv_path)
 
         def find_col(df, keyword):
             matches = [c for c in df.columns if keyword.lower() in c.lower()]
@@ -245,8 +257,9 @@ def run_realization(seed, run_duration=run_duration_default,
 
         intensity_col = find_col(data, "intensity")
         dt_col_name = find_col(data, "dt")
+        day_col = find_col(data, "day")
 
-        data["_date"] = pd.to_datetime(data["Day"]).dt.date
+        data["_date"] = pd.to_datetime(data[day_col]).dt.date
         step_hours = data[dt_col_name].iloc[0] / 60  # this file's row spacing (60 -> 1 hour/row)
 
         daily = data.groupby("_date").apply(
@@ -260,20 +273,37 @@ def run_realization(seed, run_duration=run_duration_default,
 
         intensity_run_dur = daily["avg_intensity"].values
         dt_hours_run_dur = daily["wet_hours"].values
-        
+
+        if historical_csv_path not in _historical_csv_confirmed:
+            mtime = os.path.getmtime(historical_csv_path)
+            mtime_str = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[historical rainfall] reading: {historical_csv_path}")
+            print(f"[historical rainfall] file last modified: {mtime_str}")
+            print(f"[historical rainfall] aggregated {len(data)} rows -> {len(intensity_run_dur)} days")
+            print(f"[historical rainfall] first 3 daily avg intensities: {intensity_run_dur[:3]}")
+            _historical_csv_confirmed.add(historical_csv_path)
+
     elif rainfall_source == "equilibrium":
         # Constant-intensity equilibrium run. Also identical every
         # realization.
         intensity_run_dur = np.ones(run_duration) * 10
         dt_hours_run_dur = np.array([4 if x != 0 else 0 for x in intensity_run_dur])
 
-    else:  # "poisson" -- stochastically generated rainfall run
+    elif rainfall_source == "poisson":
+        # stochastically generated rainfall run
         #   change the 3rd argument (lam) to change average intensity [mm/hr]
         #   change the first argument to rng_rain.poisson below to change
         #   average storm duration [hrs]
         intensity_run_dur = create_array_poisson(run_duration, rain_zero_prob, rain_lam, rng_rain)
         dt_hours_run_dur = np.array(
             [rng_rain.poisson(rain_duration_mean, 1).item() if x != 0 else 0 for x in intensity_run_dur]
+        )
+
+    else:
+        raise ValueError(
+            f"Unrecognized rainfall_source: {rainfall_source!r}. "
+            f"Must be exactly 'historical', 'equilibrium', or 'poisson' "
+            f"(check for typos, extra whitespace, or wrong case)."
         )
 
     dt = np.array(dt_hours_run_dur) / 24  # convert dt to days
@@ -750,6 +780,7 @@ def run_realization(seed, run_duration=run_duration_default,
         "S": S, "u_ps": u_ps, "u_pb": u_pb,
         "rain_zero_prob": rain_zero_prob, "rain_lam": rain_lam,
         "rain_duration_mean": rain_duration_mean,
+        "historical_csv_path": historical_csv_path,
     }
 
     if return_grid:
@@ -926,9 +957,7 @@ def plot_full_diagnostics(result):
 # np.histogram can fail with "Too many bins for data range" not just when
 # a dataset is exactly flat, but also when it varies by an amount too tiny
 # for floating-point precision to divide into that many distinct bin edges
-# (e.g. values that agree to 10+ significant figures). A simple
-# `arr.max() > arr.min()` check isn't a strong enough guard against this --
-# it needs a relative-tolerance check, plus a try/except as a backstop.
+# (e.g. values that agree to 10+ significant figures). 
 # ==========================================================================
 def safe_hist(ax, arr, bins, color, label, xlabel="kg"):
     arr = np.asarray(arr, dtype=float)

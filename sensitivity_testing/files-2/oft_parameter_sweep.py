@@ -17,11 +17,11 @@ from oft_model_core import *
 # between settings aren't confounded by also getting different rainfall).
 # ==========================================================================
 if __name__ == "__main__":
-    N_REALIZATIONS_PER_SETTING = 5   # rainfall/grid realizations per parameter setting
+    N_REALIZATIONS_PER_SETTING = 20   # rainfall/grid realizations per parameter setting
     SWEEP_RUN_DURATION = 30
 
     # Rainfall source for the sweep
-    SWEEP_RAINFALL_SOURCE = "possion"
+    SWEEP_RAINFALL_SOURCE = "poisson"
 
     # =========================================================================
     # SINGLE-PARAMETER RANGE SWEEP -- just set the parameter name and the
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
         SWEEP_PARAM = "rain_lam"  # the run_realization() keyword argument to vary
     #may or may not have to update code with type as int (truck_num for example)
-        SWEEP_VALUES = np.linspace(1, 12, 4) 
+        SWEEP_VALUES = np.linspace(1, 12, 4)  # the values to test it at
 
         PARAM_SWEEP = [
          {"name": f"{SWEEP_PARAM}={v:g}", SWEEP_PARAM: v}
@@ -86,8 +86,7 @@ if __name__ == "__main__":
                 runs.append(res)
             sweep_results[name] = runs
 
-    # ------ compare total_road_mass across parameter settings ------
-    # ------ compare total_road_mass across parameter settings ------
+        # ------ compare total_road_mass across parameter settings ------
         sweep_labels = list(sweep_results.keys())
         sweep_road_mass = [
             np.array([r["total_road_mass"].sum() for r in sweep_results[name]])
@@ -317,7 +316,7 @@ if __name__ == "__main__":
         GRID_VALUES_1 = [1e-4, 4e-4, 7e-4, 1e-3]
  
         GRID_PARAM_2 = "truck_num_ini"
-        GRID_VALUES_2 = [1, 3, 4, 5, 6]
+        GRID_VALUES_2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
  
         N_REALIZATIONS_PER_GRID_CELL = 20
 

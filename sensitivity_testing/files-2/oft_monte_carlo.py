@@ -12,8 +12,8 @@ from oft_model_core import *
 # realizations, to see how the Poisson stochastic model affects results
 # ==========================================================================
 if __name__ == "__main__":
-    N_RUNS = 10
-    RUN_DURATION = 120
+    N_RUNS = 50
+    RUN_DURATION = 30
 
     # =========================================================================
     # PARAMETER OVERRIDE -- to test a different parameter value, just add it
@@ -49,6 +49,10 @@ if __name__ == "__main__":
     # truck-pass erosion process and barely changes between realizations,
     # since truck traffic is identical -- not seed-dependent -- every run).
     road_mass_totals = np.array([r["total_road_mass"].sum() for r in results])
+    # ------ cutslope-only totals, parallel to road_mass_totals ------
+    cutslope_mass_totals = np.array([res["cum_road_mass_change_oft"][-1] for res in results])
+    road_mass_totals = np.array(road_mass_totals)  # ensure it's an array too, for the printout below
+    
     print(f"\nTotal road mass (water-transported sediment) across {N_RUNS} realizations:")
     print(f"  mean = {road_mass_totals.mean():.2f} kg, std = {road_mass_totals.std():.2f} kg")
     print(f"  range = [{road_mass_totals.min():.2f}, {road_mass_totals.max():.2f}] kg")
@@ -65,6 +69,15 @@ if __name__ == "__main__":
               label=f"Sediment output across {N_RUNS} Poisson-rainfall realizations",
               xlabel="Total road mass, water-transported [kg]")
     ax.set_ylabel("Number of realizations")
+    plt.show()
+
+    # ------ total vs. cutslope-only histograms, side by side ------
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    safe_hist(axes[0], road_mass_totals, bins=20, color="steelblue",
+            label="Total road sediment mass", xlabel="kg")
+    safe_hist(axes[1], cutslope_mass_totals, bins=20, color="firebrick",
+            label="Cutslope-only sediment mass", xlabel="kg")
+    plt.tight_layout()
     plt.show()
 
     # sediment output vs. total rainfall -- does more rain -> more sediment?
@@ -126,6 +139,9 @@ if __name__ == "__main__":
     ]:
         responds = "Yes" if (arr.max() - arr.min()) > 1e-6 * max(abs(arr.mean()), 1e-12) else "No"
         print(f"{label:<40}{arr.mean():>12.4f}{arr.std():>12.6f}{responds:>20}")
+    print("--- Ensemble summary (n = {}) ---".format(len(results)))
+    print(f"Total road mass:      mean = {road_mass_totals.mean():.2f} kg,  std = {road_mass_totals.std(ddof=1):.2f} kg")
+    print(f"Cutslope-only mass:   mean = {cutslope_mass_totals.mean():.2f} kg,  std = {cutslope_mass_totals.std(ddof=1):.2f} kg")
 
 #%%
     # ------ optional: run + fully plot ONE detailed realization ------
