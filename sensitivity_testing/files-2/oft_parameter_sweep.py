@@ -17,11 +17,11 @@ from oft_model_core import *
 # between settings aren't confounded by also getting different rainfall).
 # ==========================================================================
 if __name__ == "__main__":
-    N_REALIZATIONS_PER_SETTING = 20   # rainfall/grid realizations per parameter setting
+    N_REALIZATIONS_PER_SETTING = 10   # rainfall/grid realizations per parameter setting
     SWEEP_RUN_DURATION = 30
 
     # Rainfall source for the sweep
-    SWEEP_RAINFALL_SOURCE = "poisson"
+    SWEEP_RAINFALL_SOURCE = "historical"
 
     # =========================================================================
     # SINGLE-PARAMETER RANGE SWEEP -- just set the parameter name and the
@@ -47,9 +47,9 @@ if __name__ == "__main__":
  
     if RUN_SINGLE_PARAM_SWEEP:
 
-        SWEEP_PARAM = "rain_lam"  # the run_realization() keyword argument to vary
+        SWEEP_PARAM = "S"  # the run_realization() keyword argument to vary
     #may or may not have to update code with type as int (truck_num for example)
-        SWEEP_VALUES = np.linspace(1, 12, 4)  # the values to test it at
+        SWEEP_VALUES = np.linspace(0.05, 0.13, 4)  # the values to test it at
 
         PARAM_SWEEP = [
          {"name": f"{SWEEP_PARAM}={v:g}", SWEEP_PARAM: v}
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.show()
 
-        # boxplot: cutslope-only sediment mass under each parameter setting
+    # boxplot: cutslope-only sediment mass under each parameter setting
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.boxplot(sweep_cutslope_mass, tick_labels=sweep_labels)
         ax.set_ylabel("Cutslope-side road mass, water-transported [kg]")
@@ -304,13 +304,107 @@ if __name__ == "__main__":
             else:
                 print(f"\nSkipped cutslope-only log-log plot: {SWEEP_PARAM} or cutslope mass "
                     f"includes zero/negative values, which can't be shown on a log scale.")
+        
+        # ------ additional metric sweeps: fines fraction, road condition,
+        # shear behavior, TPE load -- same paired-line style as the mass
+        # sweep above, just swapping in a different scalar per realization ------
+        def plot_metric_sweep(get_value, ylabel, title):
+            """
+            Line plot of a scalar metric extracted from each realization's
+            result dict, across SWEEP_VALUES. Every realization gets its own
+            line (colored by seed), so you can see the full spread rather
+            than just a mean trend.
 
+            get_value : function(result_dict) -> float
+            """
+            x = np.array(SWEEP_VALUES)
+            values_by_setting = np.array([
+                [get_value(res) for res in sweep_results[name]] for name in sweep_labels
+            ])  # shape (n_settings, n_seeds)
+
+            n_seeds = values_by_setting.shape[1]
+            cmap = plt.get_cmap("viridis")
+            fig, ax = plt.subplots(figsize=(7, 5))
+
+            for seed_idx in range(n_seeds):
+                color = cmap(seed_idx / max(n_seeds - 1, 1))
+                ax.plot(x, values_by_setting[:, seed_idx], color=color, alpha=0.8,
+                        marker="o", markersize=3, linewidth=1, label=f"seed {seed_idx}")
+
+            ax.set_xlabel(SWEEP_PARAM)
+            ax.set_ylabel(ylabel)
+            ax.set_title(title)
+            # legend gets crowded past ~15 seeds -- drop it and rely on the
+            # colorbar-style gradient (low seed = dark purple, high seed =
+            # yellow) instead
+            if n_seeds <= 15:
+                ax.legend(fontsize=7, ncol=2)
+            plt.tight_layout()
+            plt.show()
+
+        if all(SWEEP_PARAM in params for params in PARAM_SWEEP):
+            # ------ sediment composition / supply ------
+            plot_metric_sweep(lambda res: res["Maf"][-1] / res["Ma"][-1],
+                               ylabel="Fines fraction in active layer [-]",
+                               title=f"Active-layer fines fraction vs. {SWEEP_PARAM}")
+
+            plot_metric_sweep(lambda res: res["fine_sediment_pumped_kg"],
+                               ylabel="Fine sediment pumped [kg]",
+                               title=f"Fine sediment pumped vs. {SWEEP_PARAM}")
+
+            plot_metric_sweep(lambda res: res["fine_sediment_scattered_kg"],
+                               ylabel="Fine sediment scattered [kg]",
+                               title=f"Fine sediment scattered vs. {SWEEP_PARAM}")
+
+            plot_metric_sweep(lambda res: res["sediment_added_kg"],
+                               ylabel="Sediment added to active layer [kg]",
+                               title=f"Sediment added vs. {SWEEP_PARAM}")
+
+            # ------ physical road condition ------
+            plot_metric_sweep(lambda res: res["cum_road_elev_change_dz"][-1],
+                               ylabel="Cumulative elevation change [m]",
+                               title=f"Net road elevation change vs. {SWEEP_PARAM}")
+
+            plot_metric_sweep(lambda res: (res["sa_arr"][-1] - res["sa_arr"][0]) / (nrows * ncols) * 1000,
+                               ylabel="Active-layer depth change [mm]",
+                               title=f"Active-layer depth change vs. {SWEEP_PARAM}")
+
+            plot_metric_sweep(lambda res: (res["ss_arr"][-1] - res["ss_arr"][0]) / (nrows * ncols) * 1000,
+                               ylabel="Surfacing-layer depth change [mm]",
+                               title=f"Surfacing-layer depth change vs. {SWEEP_PARAM}")
+
+            plot_metric_sweep(lambda res: (res["sb_arr"][-1] - res["sb_arr"][0]) / (nrows * ncols) * 1000,
+                               ylabel="Ballast-layer depth change [mm]",
+                               title=f"Ballast-layer depth change vs. {SWEEP_PARAM}")
+
+            # ------ hydraulics / shear behavior ------
+            plot_metric_sweep(lambda res: res["road_shear_cum_arr"][-1],
+                               ylabel="Fraction of road exceeding $\\tau_c$ [-]",
+                               title=f"Shear-stress exceedance vs. {SWEEP_PARAM}")
+            # peak shear stress reached at any point during the run
+            plot_metric_sweep(lambda res: np.max(res["avg_shear_stress_road"]),
+                                ylabel="Peak mean shear stress, full road [Pa]",
+                                title=f"Peak mean shear stress vs. {SWEEP_PARAM}")
+            plot_metric_sweep(lambda res: res["avg_n_road"][-1],
+                               ylabel="Mean roughness, full road [-]",
+                               title=f"Roughness vs. {SWEEP_PARAM}")
+
+            plot_metric_sweep(lambda res: res["fs_avg_road"][-1],
+                               ylabel="Mean shear-stress partitioning fs, full road [-]",
+                               title=f"Shear partitioning vs. {SWEEP_PARAM}")
+
+            # ------ TPE-specific ------
+            plot_metric_sweep(lambda res: res["tpe_load_ruts"][-1],
+                               ylabel="Cumulative TPE load to ruts [kg]",
+                               title=f"TPE sediment load to ruts vs. {SWEEP_PARAM}")
+        else:
+            print("\nSkipped additional metric sweeps: this PARAM_SWEEP isn't a single "
+                  "SWEEP_PARAM range (e.g. you're using the 'several different "
+                  "parameters at once' style), so there's no single x-axis to plot against.")
+        
     if RUN_COMPRESSION_THRESHOLD_GRID:
         # =========================================================================
-        # DOES COMPRESSION SHIFT THE truck_num_ini THRESHOLD?
-        # One line per compression value, all plotted together, so you can see
-        # directly whether the "jump" happens at a different truck count
-        # depending on compression -- plus an automatic threshold estimate.
+        # TWO PARAMETER SWEEP
         # =========================================================================
         GRID_PARAM_1 = "compression"
         GRID_VALUES_1 = [1e-4, 4e-4, 7e-4, 1e-3]
