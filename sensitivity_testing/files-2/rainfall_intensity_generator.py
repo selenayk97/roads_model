@@ -21,9 +21,9 @@ OUTPUT_NAME = "rainfall_scenario"     # base filename for the plot
 # num_storms(V)               number of storm events, evenly spaced across the
 #                             full TOTAL_PERIOD_DAYS
 SCENARIOS = [
-    {"name": "Case Low", "intensity_mm_hr": 1, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
-     {"name": "Case Medium", "intensity_mm_hr": 6, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
-     {"name": "Case High", "intensity_mm_hr": 12, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
+    {"name": "Case Low", "intensity_mm_hr": 4.38, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
+     #{"name": "Case Medium", "intensity_mm_hr": 6, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
+     #{"name": "Case High", "intensity_mm_hr": 12, "intensity_step_mm_hr": 0, "storm_duration_days": 0.3, "num_storms": 11},
 ]
 
 #%%
@@ -110,7 +110,7 @@ def solve_intensity_from_depth(total_depth_mm, num_storms, storm_duration_hours)
     return total_depth_mm / (num_storms * storm_duration_hours)
 
 # Low case
-intensity_low = solve_intensity_from_depth(40.64, num_storms=10, storm_duration_hours=8)
+intensity_low = solve_intensity_from_depth(350, num_storms=10, storm_duration_hours=8)
 # High case
 intensity_high = solve_intensity_from_depth(947.45, num_storms=10, storm_duration_hours=8)
 

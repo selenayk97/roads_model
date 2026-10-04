@@ -60,7 +60,7 @@ rain_gauge = rain_gauge_list[6]
 # ------ site parameters (read once, not per run) ------
 parameters = pd.read_csv(os.path.join(PROJECT_ROOT, "input/parameters_WY2024.csv"))
 site_params = parameters.loc[parameters["Site Name"] == site_name].iloc[0]
-S = site_params["Road Gradient"] / 100
+S = 0.05
 porosity_c = 0.35
 porosity_f = 0.35
 
@@ -73,7 +73,7 @@ Ss_ini = 0.23   # surfacing depth in m
 Sb_ini = 2      # ballast depth in m
 
 # ------ truck passes ------
-truck_num_ini = 24
+truck_num_ini = 2
 
 # ------ roughness values ------
 n_c = 0.05
@@ -153,7 +153,7 @@ def run_realization(seed, run_duration=run_duration_default,
                      F_af0=0.50, F_sf0=1, F_bc0=0.5, scat_loss=8e-4, compression=7e-4,
                      tau_c_road=tau_c_road, n_c=n_c, n_f=n_f, d50_road=d50_road,
                      rain_zero_prob=0.6, rain_lam=7, rain_duration_mean=8,
-                     historical_csv_path="/Users/goddamnit/github/roads_model/input/Case Medium.csv"):
+                     historical_csv_path="/Users/goddamnit/github/roads_model/input/Case Low.csv"):
     """
     Run one full realization of the road erosion model.
 
@@ -366,6 +366,15 @@ def run_realization(seed, run_duration=run_duration_default,
     ss_arr = np.zeros(run_duration)
     sb_arr = np.zeros(run_duration)
 
+    phi_c_a_ruts = np.zeros(run_duration)
+    phi_f_a_ruts = np.zeros(run_duration)
+    phi_c_s_ruts = np.zeros(run_duration)
+    phi_f_s_ruts = np.zeros(run_duration)
+    phi_c_a_ruts_min = np.zeros(run_duration)   # worst-case (most compacted) node anywhere on the road
+    phi_c_s_ruts_min = np.zeros(run_duration) 
+    phi_f_a_ruts_min = np.zeros(run_duration)
+    phi_f_s_ruts_min = np.zeros(run_duration)
+
     Ma = np.zeros(run_duration)
     Maf = np.zeros(run_duration)
     Mac = np.zeros(run_duration)
@@ -447,6 +456,15 @@ def run_realization(seed, run_duration=run_duration_default,
 
         tpe.run_one_step()
         truck_num += tpe.truck_num
+
+        phi_c_a_ruts[i] = np.nanmean(mg.at_node['phi_c_a'][ruts])
+        phi_f_a_ruts[i] = np.nanmean(mg.at_node['phi_f_a'][ruts])
+        phi_c_s_ruts[i] = np.nanmean(mg.at_node['phi_c_s'][ruts])
+        phi_f_s_ruts[i] = np.nanmean(mg.at_node['phi_f_s'][ruts])
+        phi_c_a_ruts_min[i] = np.nanmin(mg.at_node['phi_c_a'][ruts])
+        phi_c_s_ruts_min[i] = np.nanmin(mg.at_node['phi_c_s'][ruts])
+        phi_f_a_ruts_min[i] = np.nanmin(mg.at_node['phi_f_a'][ruts])
+        phi_f_s_ruts_min[i] = np.nanmin(mg.at_node['phi_f_s'][ruts])
 
         intensity = intensity_run_dur[i]  # use the i-th day's intensity
         dt_day = dt[i]  # use the i-th day's time step
@@ -781,6 +799,12 @@ def run_realization(seed, run_duration=run_duration_default,
         "rain_zero_prob": rain_zero_prob, "rain_lam": rain_lam,
         "rain_duration_mean": rain_duration_mean,
         "historical_csv_path": historical_csv_path,
+        "phi_c_a_ruts": phi_c_a_ruts, "phi_f_a_ruts": phi_f_a_ruts,
+        "phi_c_s_ruts": phi_c_s_ruts, "phi_f_s_ruts": phi_f_s_ruts,
+        "phi_c_a_ruts_min": phi_c_a_ruts_min,
+        "phi_f_a_ruts_min": phi_f_a_ruts_min,
+        "phi_c_s_ruts_min": phi_c_s_ruts_min,
+        "phi_f_s_ruts_min": phi_f_s_ruts_min,
     }
 
     if return_grid:

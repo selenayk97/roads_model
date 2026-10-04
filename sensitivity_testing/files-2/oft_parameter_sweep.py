@@ -47,9 +47,9 @@ if __name__ == "__main__":
  
     if RUN_SINGLE_PARAM_SWEEP:
 
-        SWEEP_PARAM = "S"  # the run_realization() keyword argument to vary
+        SWEEP_PARAM = "truck_num_ini"  # the run_realization() keyword argument to vary
     #may or may not have to update code with type as int (truck_num for example)
-        SWEEP_VALUES = np.linspace(0.05, 0.13, 4)  # the values to test it at
+        SWEEP_VALUES = [5, 8, 10]  # the values to test it at
 
         PARAM_SWEEP = [
          {"name": f"{SWEEP_PARAM}={v:g}", SWEEP_PARAM: v}
@@ -381,27 +381,99 @@ if __name__ == "__main__":
             plot_metric_sweep(lambda res: res["road_shear_cum_arr"][-1],
                                ylabel="Fraction of road exceeding $\\tau_c$ [-]",
                                title=f"Shear-stress exceedance vs. {SWEEP_PARAM}")
+            
             # peak shear stress reached at any point during the run
             plot_metric_sweep(lambda res: np.max(res["avg_shear_stress_road"]),
                                 ylabel="Peak mean shear stress, full road [Pa]",
                                 title=f"Peak mean shear stress vs. {SWEEP_PARAM}")
+            
             plot_metric_sweep(lambda res: res["avg_n_road"][-1],
                                ylabel="Mean roughness, full road [-]",
                                title=f"Roughness vs. {SWEEP_PARAM}")
 
-            plot_metric_sweep(lambda res: res["fs_avg_road"][-1],
-                               ylabel="Mean shear-stress partitioning fs, full road [-]",
+            plot_metric_sweep(lambda res: res["fs_avg_ruts"][-1],
+                               ylabel="Mean shear-stress partitioning fs, ruts only [-]",
                                title=f"Shear partitioning vs. {SWEEP_PARAM}")
 
             # ------ TPE-specific ------
             plot_metric_sweep(lambda res: res["tpe_load_ruts"][-1],
                                ylabel="Cumulative TPE load to ruts [kg]",
                                title=f"TPE sediment load to ruts vs. {SWEEP_PARAM}")
+            
+            # ------ porosity decay time series, ALL settings and ALL seeds on one figure ------
+            fig, ax = plt.subplots(figsize=(8, 5))
+            cmap = plt.get_cmap("viridis")
+            for i, name in enumerate(sweep_labels):
+                runs = sweep_results[name]
+                color = cmap(i / max(len(sweep_labels) - 1, 1))
+                for seed_idx, res in enumerate(runs):
+                    ax.plot(range(res["run_duration"]), res["phi_c_a_ruts_min"], color=color,
+                            alpha=0.4, linewidth=0.8,
+                            label=name if seed_idx == 0 else None)  # one legend entry per setting
+            ax.axhline(0.31, color="black", linestyle="--", linewidth=1, label="phi_limit = 0.31")
+            ax.set_xlabel("Day")
+            ax.set_ylabel("Min Active-layer coarse porosity in ruts [-]")
+            ax.set_title("Porosity decay vs. day, all settings and seeds")
+            ax.legend(fontsize=7, ncol=2)
+            plt.tight_layout()
+            plt.show()
+
+            fig, ax = plt.subplots(figsize=(8, 5))
+            cmap = plt.get_cmap("viridis")
+            for i, name in enumerate(sweep_labels):
+                runs = sweep_results[name]
+                color = cmap(i / max(len(sweep_labels) - 1, 1))
+                for seed_idx, res in enumerate(runs):
+                    ax.plot(range(res["run_duration"]), res["phi_c_s_ruts_min"], color=color,
+                            alpha=0.4, linewidth=0.8,
+                            label=name if seed_idx == 0 else None)  # one legend entry per setting
+            ax.axhline(0.31, color="black", linestyle="--", linewidth=1, label="phi_limit = 0.31")
+            ax.set_xlabel("Day")
+            ax.set_ylabel("Min Surfacing-layer coarse porosity in ruts [-]")
+            ax.set_title("Porosity decay vs. day, all settings and seeds")
+            ax.legend(fontsize=7, ncol=2)
+            plt.tight_layout()
+            plt.show()
+
+            fig, ax = plt.subplots(figsize=(8, 5))
+            cmap = plt.get_cmap("viridis")
+            for i, name in enumerate(sweep_labels):
+                runs = sweep_results[name]
+                color = cmap(i / max(len(sweep_labels) - 1, 1))
+                for seed_idx, res in enumerate(runs):
+                    ax.plot(range(res["run_duration"]), res["phi_f_s_ruts_min"], color=color,
+                            alpha=0.4, linewidth=0.8,
+                            label=name if seed_idx == 0 else None)  # one legend entry per setting
+            ax.axhline(0.31, color="black", linestyle="--", linewidth=1, label="phi_limit = 0.31")
+            ax.set_xlabel("Day")
+            ax.set_ylabel("Min Surfacing-layer fine porosity in ruts [-]")
+            ax.set_title("Porosity decay vs. day, all settings and seeds")
+            ax.legend(fontsize=7, ncol=2)
+            plt.tight_layout()
+            plt.show()
+
+            fig, ax = plt.subplots(figsize=(8, 5))
+            cmap = plt.get_cmap("viridis")
+            for i, name in enumerate(sweep_labels):
+                runs = sweep_results[name]
+                color = cmap(i / max(len(sweep_labels) - 1, 1))
+                for seed_idx, res in enumerate(runs):
+                    ax.plot(range(res["run_duration"]), res["phi_f_a_ruts_min"], color=color,
+                            alpha=0.4, linewidth=0.8,
+                            label=name if seed_idx == 0 else None)  # one legend entry per setting
+            ax.axhline(0.31, color="black", linestyle="--", linewidth=1, label="phi_limit = 0.31")
+            ax.set_xlabel("Day")
+            ax.set_ylabel("Min Active-layer fine porosity in ruts [-]")
+            ax.set_title("Porosity decay vs. day, all settings and seeds")
+            ax.legend(fontsize=7, ncol=2)
+            plt.tight_layout()
+            plt.show()
+
         else:
             print("\nSkipped additional metric sweeps: this PARAM_SWEEP isn't a single "
                   "SWEEP_PARAM range (e.g. you're using the 'several different "
                   "parameters at once' style), so there's no single x-axis to plot against.")
-        
+                  
     if RUN_COMPRESSION_THRESHOLD_GRID:
         # =========================================================================
         # TWO PARAMETER SWEEP
