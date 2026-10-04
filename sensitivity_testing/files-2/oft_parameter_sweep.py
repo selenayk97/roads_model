@@ -383,9 +383,26 @@ if __name__ == "__main__":
                                title=f"Shear-stress exceedance vs. {SWEEP_PARAM}")
             
             # peak shear stress reached at any point during the run
-            plot_metric_sweep(lambda res: np.max(res["avg_shear_stress_road"]),
-                                ylabel="Peak mean shear stress, full road [Pa]",
-                                title=f"Peak mean shear stress vs. {SWEEP_PARAM}")
+            # Peak mean shear stress, full road vs. truck_num_ini (with tau_c reference line)
+            x = np.array(SWEEP_VALUES)
+            values_by_setting = np.array([
+                [np.max(res["avg_shear_stress_ruts"]) for res in sweep_results[name]]
+                for name in sweep_labels
+            ])
+            n_seeds = values_by_setting.shape[1]
+            cmap = plt.get_cmap("viridis")
+            fig, ax = plt.subplots(figsize=(7, 5))
+            for seed_idx in range(n_seeds):
+                color = cmap(seed_idx / max(n_seeds - 1, 1))
+                ax.plot(x, values_by_setting[:, seed_idx], color=color, alpha=0.8,
+                        marker="o", markersize=3, linewidth=1, label=f"seed {seed_idx}")
+            ax.axhline(0.146, color="black", linestyle="--", linewidth=1, label=r"$\tau_c$ = 0.146")
+            ax.set_xlabel(SWEEP_PARAM)
+            ax.set_ylabel("Peak mean shear stress, ruts only [Pa]")
+            ax.set_title("Peak mean shear stress vs. truck_num_ini")
+            ax.legend(fontsize=7, ncol=2)
+            plt.tight_layout()
+            plt.show()
             
             plot_metric_sweep(lambda res: res["avg_n_road"][-1],
                                ylabel="Mean roughness, full road [-]",
